@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Manajemen Keluhan - PERUMDAM</title>
+    <link rel="icon" type="image/x-icon" href="/images/PDAM Logo.ico">
+    <!-- 1. Muat Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 2. Muat Font Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- 3. Muat Ikon Lucide (DIHAPUS, dipindahkan ke module script) -->
+    <!-- <script src="https://unpkg.com/lucide@latest/dist/lucide.umd.js"></script> -->
+
+    <style>
+        /* Terapkan font Inter ke seluruh aplikasi */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Sembunyikan view/modal secara default */
+        .view, #detailKeluhanModal, #mainView, #loadingOverlay {
+            display: none;
+        }
+        /* Style untuk status keluhan */
+        .status-badge {
+            padding: 4px 10px;
+            border-radius: 9999px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            text-transform: capitalize;
+        }
+        .status-baru { background-color: #E0E7FF; color: #3730A3; }
+        .status-ditugaskan { background-color: #FEF3C7; color: #92400E; }
+        .status-dikerjakan { background-color: #DBEAFE; color: #1D4ED8; }
+        .status-selesai { background-color: #D1FAE5; color: #065F46; }
+        .status-ditutup { background-color: #F3F4F6; color: #4B5563; }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <!-- ===== OVERLAY LOADING ===== -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-white bg-opacity-75 flex items-center justify-center z-50" style="display: flex;">
+        <div class="flex flex-col items-center">
+            <svg class="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p class="mt-2 text-gray-600 font-medium">Menghubungkan ke Database...</p>
+        </div>
+    </div>
+
+    <!-- ===== HALAMAN LOGIN ===== -->
+    <div id="loginView" class="min-h-screen flex items-center justify-center bg-gray-50 p-4" style="display: flex;"> <div class="max-w-md w-full bg-white rounded-lg shadow-md p-8">
+            <div class="flex justify-center mb-6">
+                <div class="w-16 h-16 bg-blue-100 text-blue-600 flex items-center justify-center rounded-full">
+                    <i data-lucide="droplets"></i>
+                </div>
+            </div>
+            <h2 class="text-2xl font-bold text-center text-gray-800">Sistem Manajemen Keluhan</h2>
+            <p class="text-center text-gray-500 mb-6">PERUMDAM Tirta Daroy</p>
+            
+            <form id="loginForm" class="space-y-4">
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
+                    <input type="email" id="email" name="email" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                    <input type="password" id="password" name="password" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                
+                <p id="loginError" class="text-sm text-red-600 h-4"></p>
+                
+                <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    Login
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===== APLIKASI UTAMA (Setelah Login) ===== -->
+    <div id="mainView" class="flex flex-col md:flex-row min-h-screen bg-gray-100">
+        
+        <!-- Sidebar -->
+        <nav class="md:w-64 bg-white shadow-md flex-shrink-0">
+            <div class="flex items-center justify-center p-4 border-b">
+                 <div class="w-10 h-10 bg-blue-100 text-blue-600 flex items-center justify-center rounded-full mr-3">
+                    <i data-lucide="droplets"></i>
+                </div>
+                <span class="text-lg font-bold text-gray-800">PERUMDAM</span>
+            </div>
+            <div class="p-4 space-y-2">
+                <a href="#" onclick="showView('dashboardView')" class="nav-link flex items-center px-3 py-2 text-gray-600 hover:bg-blue-50 hover:text-blue-600 rounded-md">
+                    <i data-lucide="layout-dashboard" class="w-5 h-5 mr-3"></i> Dashboard
+                </a>
+                <a href="#" onclick="showView('inputKeluhanView')" class="nav-link nav-admin flex items-center px-3 py-2 text-gray-600 hover:bg-blue-50 hover:text-blue-600 rounded-md">
+                    <i data-lucide="edit-3" class="w-5 h-5 mr-3"></i> Input Keluhan Baru
+                </a>
+                <a href="#" onclick="showView('dataKeluhanView')" class="nav-link flex items-center px-3 py-2 text-gray-600 hover:bg-blue-50 hover:text-blue-600 rounded-md">
+                    <i data-lucide="list" class="w-5 h-5 mr-3"></i> Data Keluhan
+                </a>
+                <a href="#" onclick="showView('laporanView')" class="nav-link nav-manajer flex items-center px-3 py-2 text-gray-600 hover:bg-blue-50 hover:text-blue-600 rounded-md">
+                    <i data-lucide="bar-chart-2" class="w-5 h-5 mr-3"></i> Laporan
+                </a>
+                <a href="#" onclick="handleLogout()" class="flex items-center px-3 py-2 text-gray-600 hover:bg-red-50 hover:text-red-600 rounded-md mt-8">
+                    <i data-lucide="log-out" class="w-5 h-5 mr-3"></i> Logout
+                </a>
+            </div>
+        </nav>
+
+        <!-- Content Area -->
+        <main class="flex-1 p-6 md:p-8 overflow-auto">
+            <!-- Header Konten -->
+            <div class="flex justify-between items-center mb-6">
+                <h1 id="contentTitle" class="text-3xl font-bold text-gray-800">Dashboard</h1>
+                <div class="text-right">
+                    <p class="text-gray-700 font-medium">Selamat Datang, <span id="userRoleName"></span>!</p>
+                    <p class="text-sm text-gray-500">Cabang Teuku Nyak Arief</p>
+                </div>
+            </div>
+
+            <!-- ===== KONTEN: DASHBOARD ===== -->
+            <div id="dashboardView" class="view">
+                <!-- Stat Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div class="bg-white p-6 rounded-lg shadow flex items-center">
+                        <div class="w-12 h-12 bg-blue-100 text-blue-600 flex items-center justify-center rounded-full mr-4">
+                            <i data-lucide="inbox"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">Total Keluhan</p>
+                            <p id="statTotal" class="text-3xl font-bold text-gray-800">0</p>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow flex items-center">
+                        <div class="w-12 h-12 bg-yellow-100 text-yellow-600 flex items-center justify-center rounded-full mr-4">
+                            <i data-lucide="alert-circle"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">Keluhan Pending</p>
+                            <p id="statPending" class="text-3xl font-bold text-gray-800">0</p>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow flex items-center">
+                        <div class="w-12 h-12 bg-green-100 text-green-600 flex items-center justify-center rounded-full mr-4">
+                            <i data-lucide="check-circle"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">Keluhan Selesai</p>
+                            <p id="statSelesai" class="text-3xl font-bold text-gray-800">0</p>
+                        </div>
+                    </div>
+                </div>
+                <!-- Daftar Keluhan Terbaru (Dashboard) -->
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h2 class="text-xl font-semibold mb-4">Keluhan Terbaru (5 Teratas)</h2>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="text-left text-sm text-gray-500 uppercase">
+                                <tr>
+                                    <th class="py-2 px-3">Tgl Lapor</th>
+                                    <th class="py-2 px-3">Pelanggan</th>
+                                    <th class="py-2 px-3">Keluhan</th>
+                                    <th class="py-2 px-3">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dashboardTableBody" class="divide-y">
+                                <!-- Data diisi oleh JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== KONTEN: INPUT KELUHAN BARU ===== -->
+            <div id="inputKeluhanView" class="view">
+                <div class="bg-white p-6 rounded-lg shadow max-w-2xl mx-auto">
+                    <h2 class="text-xl font-semibold mb-6">Formulir Keluhan Pelanggan Baru</h2>
+                    <form id="formKeluhan" onsubmit="handleSimpanKeluhan(event)">
+                        <div class="space-y-4">
+                            <!-- Data Pelanggan -->
+                            <div>
+                                <label for="noSambungan" class="block text-sm font-medium text-gray-700">Nomor Sambungan (ID Pelanggan)</label>
+                                <div class="flex mt-1">
+                                    <input type="text" id="noSambungan" class="flex-1 block w-full rounded-none rounded-l-md border-gray-300 focus:border-blue-500 focus:ring-blue-500" placeholder="Cari No. Sambungan..." onchange="searchPelanggan()">
+                                    <button type="button" onclick="searchPelanggan()" class="inline-flex items-center px-3 rounded-r-md border border-l-0 border-gray-300 bg-gray-50 text-gray-500 hover:bg-gray-100">
+                                        <i data-lucide="search" class="w-5 h-5"></i>
+                                    </button>
+                                </div>
+                                <p id="searchPelangganStatus" class="text-sm mt-1"></p>
+                            </div>
+                            
+                            <div>
+                                <label for="namaPelanggan" class="block text-sm font-medium text-gray-700">Nama Pelanggan</label>
+                                <input type="text" id="namaPelanggan" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-100" readonly>
+                            </div>
+                            
+                            <div>
+                                <label for="alamatPelanggan" class="block text-sm font-medium text-gray-700">Alamat</label>
+                                <textarea id="alamatPelanggan" rows="2" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-100" readonly></textarea>
+                            </div>
+
+                            <div class="border-t border-gray-200 pt-4"></div>
+
+                            <!-- Detail Keluhan -->
+                             <div>
+                                <label for="jenisKeluhan" class="block text-sm font-medium text-gray-700">Jenis Keluhan</label>
+                                <select id="jenisKeluhan" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
+                                    <option value="">-- Pilih Jenis Keluhan --</option>
+                                    <option value="Tidak Ada Air">Tidak Ada Air / Aliran Terhenti</option>
+                                    <option value="Aliran Air Sedikit">Aliran Air Sedikit / Tekanan Lemah</option>
+                                    <option value="Air Keruh">Kualitas Air (Keruh, Bau, Berwarna)</option>
+                                    <option value="Kebocoran Pipa">Kebocoran Pipa (SR / Distribusi)</option>
+                                    <option value="Meteran Rusak">Meteran Air Rusak / Tidak Berputar</option>
+                                    <option value="Salah Lapor">Salah Lapor / Miskomunikasi</option>
+                                    <option value="Lainnya">Lainnya</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label for="deskripsiKeluhan" class="block text-sm font-medium text-gray-700">Deskripsi Lengkap Keluhan</label>
+                                <textarea id="deskripsiKeluhan" rows="4" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="Tuliskan detail keluhan yang dilaporkan pelanggan..." required></textarea>
+                            </div>
+
+                            <div class="pt-2 flex justify-end">
+                                <button type="submit" class="inline-flex justify-center py-2 px-6 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                    Simpan Keluhan
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- ===== KONTEN: DATA KELUHAN ===== -->
+            <div id="dataKeluhanView" class="view">
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h2 class="text-xl font-semibold mb-4">Semua Data Keluhan</h2>
+                    <div class="overflow-x-auto">
+                        <table class="w-full min-w-max">
+                            <thead class="text-left text-sm text-gray-500 uppercase">
+                                <tr>
+                                    <th class="py-2 px-3">No.</th>
+                                    <th class="py-2 px-3">Tgl Lapor</th>
+                                    <th class="py-2 px-3">No. Sambungan</th>
+                                    <th class="py-2 px-3">Pelanggan</th>
+                                    <th class="py-2 px-3">Keluhan</th>
+                                    <th class="py-2 px-3">Status</th>
+                                    <th class="py-2 px-3">Teknisi</th>
+                                    <th class="py-2 px-3">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dataTableBody" class="divide-y">
+                                <!-- Data diisi oleh JS -->
+                                <!-- Contoh Row (dihapus oleh JS) -->
+                                <tr>
+                                    <td class="py-3 px-3">1</td>
+                                    <td class="py-3 px-3">2025-10-27 09:30</td>
+                                    <td class="py-3 px-3">236082</td>
+                                    <td class="py-3 px-3">Zainuddin, SE</td>
+                                    <td class="py-3 px-3">Aliran Air Sedikit</td>
+                                    <td class="py-3 px-3"><span class="status-badge status-selesai">Selesai</span></td>
+                                    <td class="py-3 px-3">Syahrial S.</td>
+                                    <td class="py-3 px-3">
+                                        <button class="text-blue-600 hover:text-blue-800">Detail</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== KONTEN: LAPORAN ===== -->
+            <div id="laporanView" class="view">
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h2 class="text-xl font-semibold mb-4">Analisis Laporan</h2>
+                    <p class="text-gray-600">Halaman ini akan berisi ringkasan laporan dan analitik, seperti:
+                        <ul class="list-disc list-inside mt-2">
+                            <li>Grafik tren keluhan per hari/minggu/bulan.</li>
+                            <li>Peta sebaran keluhan (jika ada data geospasial).</li>
+                            <li>Laporan performa teknisi (waktu respon, jumlah keluhan ditangani).</li>
+                            <li>Analisis jenis keluhan terbanyak.</li>
+                        </ul>
+                    </p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+
+    <!-- ===== MODAL DETAIL KELUHAN ===== -->
+    <div id="detailKeluhanModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-40 overflow-auto">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+            <!-- Modal Header -->
+            <div class="flex justify-between items-center p-4 border-b">
+                <h2 class="text-xl font-semibold text-gray-800">Detail Keluhan (ID: <span id="modalKeluhanId"></span>)</h2>
+                <button onclick="hideDetailModal()" class="text-gray-400 hover:text-gray-600">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="p-6 overflow-y-auto space-y-6">
+                <!-- Info Utama -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <h3 class="text-sm font-medium text-gray-500">Pelanggan</h3>
+                        <p id="modalNama" class="text-lg font-semibold text-gray-800">-</p>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-medium text-gray-500">No. Sambungan</h3>
+                        <p id="modalNoSambungan" class="text-lg text-gray-800">-</p>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-medium text-gray-500">Alamat</h3>
+                        <p id="modalAlamat" class="text-base text-gray-800">-</p>
+                    </div>
+                     <div>
+                        <h3 class="text-sm font-medium text-gray-500">Status Saat Ini</h3>
+                        <p id="modalStatus" class="text-base font-medium">-</p>
+                    </div>
+                </div>
+
+                <!-- Detail Laporan -->
+                <div class="border-t pt-4">
+                    <h3 class="text-base font-semibold text-gray-800 mb-2">Detail Laporan Keluhan</h3>
+                    <div class="bg-gray-50 p-4 rounded-md">
+                        <p class="font-medium text-gray-700" id="modalJenisKeluhan">-</p>
+                        <p class="text-gray-600 mt-1" id="modalDeskripsi">-</p>
+                        <p class="text-sm text-gray-500 mt-2">Dilaporkan pada: <span id="modalTglLapor"></span></p>
+                    </div>
+                </div>
+
+                <!-- Riwayat Tindakan / Log -->
+                <div class="border-t pt-4">
+                    <h3 class="text-base font-semibold text-gray-800 mb-2">Riwayat Tindakan Teknisi</h3>
+                    <div id="modalLogTindakan" class="space-y-3 max-h-40 overflow-y-auto">
+                        <!-- Diisi oleh JS -->
+                        <p class="text-gray-500 italic">Belum ada tindakan yang dicatat.</p>
+                    </div>
+                </div>
+
+                <!-- ===== BAGIAN AKSI (Berbeda per Role) ===== -->
+
+                <!-- Aksi Manajer: Tugaskan Teknisi -->
+                <div id="aksiManajer" class="border-t pt-4 space-y-2" style="display: none;">
+                    <h3 class="text-base font-semibold text-gray-800">Tugaskan Teknisi</h3>
+                    <div class="flex items-center space-x-2">
+                        <select id="teknisiAssignDropdown" class="flex-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <!-- Diisi oleh JS -->
+                        </select>
+                        <button onclick="handleAssignTeknisi()" class="px-4 py-2 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700">
+                            Tugaskan
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Aksi Teknisi: Update Tindakan -->
+                <div id="aksiTeknisi" class="border-t pt-4 space-y-4" style="display: none;">
+                    <h3 class="text-base font-semibold text-gray-800">Update Laporan Tindakan</h3>
+                    <form id="formUpdateTindakan" onsubmit="handleUpdateTindakan(event)">
+                        <input type="hidden" id="modalKeluhanIdHidden">
+                        <div>
+                            <label for="penyebabGangguan" class="block text-sm font-medium text-gray-700">Identifikasi Penyebab Gangguan</label>
+                            <select id="penyebabGangguan" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
+                                <option value="">-- Pilih Penyebab --</option>
+                                <option value="Sumbatan di Meteran">Sumbatan di Meteran</option>
+                                <option value="Sumbatan di Klem Sadel">Indikasi Sumbatan di Klem Sadel</option>
+                                <option value="Stop Kran Tertutup">Stop Kran Pelanggan Tertutup</option>
+                                <option value="Kebocoran Pipa SR">Kebocoran Pipa SR (Sambungan Rumah)</option>
+                                <option value="Kebocoran Pipa Distribusi">Kebocoran Pipa Distribusi</option>
+                                <option value="Instalasi Internal Pelanggan">Masalah Instalasi Internal Pelanggan</option>
+                                <option value="Udara Terperangkap">Udara Terperangkap di Pipa</option>
+                                <option value="Lainnya">Lainnya</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="catatanTeknisi" class="block text-sm font-medium text-gray-700 mt-2">Catatan Tindakan Perbaikan</label>
+                            <textarea id="catatanTeknisi" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="Jelaskan tindakan yang telah dilakukan..." required></textarea>
+                        </div>
+                        <div class="flex justify-end mt-4">
+                            <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-md shadow-sm hover:bg-green-700">
+                                Selesaikan Tugas
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Aksi Admin: Tutup Tiket -->
+                 <div id="aksiAdmin" class="border-t pt-4 flex justify-end" style="display: none;">
+                    <button onclick="handleCloseTicket()" class="px-4 py-2 bg-gray-600 text-white rounded-md shadow-sm hover:bg-gray-700">
+                        Tutup Tiket (Close)
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ===== SCRIPT UTAMA ===== -->
+    <script type="module">
+        // 1. Impor ikon Lucide sebagai modul
+        import { createIcons, icons } from 'https://esm.sh/lucide@0.395.0';
+
+        // 2. Impor modul Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { 
+            getAuth, 
+            signInAnonymously, 
+            signInWithCustomToken, 
+            onAuthStateChanged,
+            // --- TAMBAHKAN INI ---
+            signInWithEmailAndPassword,
+            signOut
+            // --- AKHIR TAMBAHAN ---
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        // ... impor firestore ...
+        import { 
+            getFirestore, 
+            doc, 
+            getDoc, 
+            setDoc, 
+            addDoc, 
+            updateDoc, 
+            collection, 
+            query, 
+            where, 
+            onSnapshot,
+            orderBy,
+            setLogLevel,
+            getDocs // Tambahkan getDocs
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- KONFIGURASI DAN INISIALISASI ---
+
+        // Variabel global aplikasi
+        let db, auth;
+        let currentUserRole = null;
+        let currentUserId = null;
+        let allKeluhan = []; // Cache lokal untuk data keluhan
+        
+        // Daftar teknisi (hardcoded untuk purwarupa ini)
+        // Diambil dari contoh data Anda
+        const teknisiList = [
+            { id: 'teknisi_syahrul', nama: 'Syahrul' },
+            { id: 'teknisi_syahrial', nama: 'Syahrial Syahputra' },
+            { id: 'teknisi_asrun', nama: 'Asrun' },
+            { id: 'teknisi_verri', nama: 'T. Verri Afriadi' },
+            { id: 'teknisi_dodi', nama: 'Dodi Rilantamber' }
+        ];
+
+        // Konfigurasi Firebase (MANDATORY)
+        const firebaseConfig = {
+            apiKey: "AIzaSyAPtpjATm6dXxzsbFzZYmNflPS0irwvsuQ",
+            authDomain: "sistem-keluhan-pdam.firebaseapp.com",
+            projectId: "sistem-keluhan-pdam",
+            storageBucket: "sistem-keluhan-pdam.firebasestorage.app",
+            messagingSenderId: "204406121937",
+            appId: "1:204406121937:web:beb2e55b90fdd2e421ecf0",
+            measurementId: "G-1R5DCYTWQR"
+            };
+        
+        // Inisialisasi Firebase App
+        const app = initializeApp(firebaseConfig);
+        auth = getAuth(app);
+        db = getFirestore(app);
+        // setLogLevel('debug'); // Aktifkan untuk debugging
+
+        // Referensi Koleksi Firestore (MANDATORY: Gunakan path publik)
+        const pelangganRef = collection(db, "pelanggan");
+        const keluhanRef = collection(db, "keluhan");
+        const logRef = collection(db, "log_tindakan");
+
+
+        // --- FUNGSI AUTENTIKASI ---
+
+        async function initAuth() {
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    // --- USER SUDAH LOGIN ---
+                    console.log("User terautentikasi:", user.uid);
+                    currentUserId = user.uid;
+
+                    // AMBIL ROLE DARI FIRESTORE
+                    try {
+                        const docRef = doc(db, "users", user.uid);
+                        const docSnap = await getDoc(docRef);
+
+                        if (docSnap.exists()) {
+                            currentUserRole = docSnap.data().role; // misal: "Admin"
+                            document.getElementById('userRoleName').innerText = docSnap.data().nama || currentUserRole;
+                            
+                            // Role didapat, atur UI
+                            setupUIRoles();
+                            
+                            // Tampilkan aplikasi utama & sembunyikan login
+                            document.getElementById('loadingOverlay').style.display = 'none';
+                            document.getElementById('loginView').style.display = 'none';
+                            document.getElementById('mainView').style.display = 'flex';
+                            
+                            // Muat data
+                            showView('dashboardView');
+                            loadAllData();
+
+                        } else {
+                            // User login tapi tidak punya data role di database
+                            console.error("User tidak punya data role di Firestore!");
+                            alert("Gagal memuat data user. Hubungi administrator.");
+                            await signOut(auth); // Logout paksa
+                        }
+                    } catch (error) {
+                        console.error("Gagal mengambil data user:", error);
+                        alert("Gagal mengambil data user.");
+                        await signOut(auth);
+                    }
+
+                } else {
+                    // --- USER TIDAK LOGIN ---
+                    console.log("User tidak terautentikasi.");
+                    currentUserId = null;
+                    currentUserRole = null;
+                    
+                    // Tampilkan halaman login, sembunyikan yang lain
+                    document.getElementById('loadingOverlay').style.display = 'none';
+                    document.getElementById('mainView').style.display = 'none';
+                    document.getElementById('loginView').style.display = 'flex';
+                }
+            });
+        }
+
+        // --- FUNGSI UTAMA APLIKASI ---
+
+        // Fungsi untuk menampilkan/menyembunyikan menu berdasarkan role
+        function setupUIRoles() {
+            // Sembunyikan semua elemen spesifik role dulu
+            document.querySelectorAll('.nav-admin, .nav-manajer, .nav-teknisi').forEach(el => el.style.display = 'none');
+            
+            // Tampilkan berdasarkan role
+            if (currentUserRole === 'Admin') {
+                document.querySelectorAll('.nav-admin').forEach(el => el.style.display = 'flex');
+            }
+            if (currentUserRole === 'Manajer') {
+                document.querySelectorAll('.nav-admin, .nav-manajer').forEach(el => el.style.display = 'flex');
+            }
+            if (currentUserRole === 'Teknisi') {
+                document.querySelectorAll('.nav-teknisi').forEach(el => el.style.display = 'flex');
+            }
+            // Tampilkan nav-link umum untuk semua role (Dashboard, Data Keluhan)
+            document.querySelectorAll('.nav-link:not(.nav-admin):not(.nav-manajer):not(.nav-teknisi)').forEach(el => {
+                // Kecuali logout
+                if (!el.getAttribute('onclick')?.includes('handleLogout')) {
+                     el.style.display = 'flex';
+                }
+            });
+        }
+
+        // Fungsi Pindah Halaman/View
+        window.showView = function(viewId) {
+            // Sembunyikan semua view
+            document.querySelectorAll('.view').forEach(view => view.style.display = 'none');
+            
+            // Tampilkan view yang dipilih
+            const viewToShow = document.getElementById(viewId);
+            if (viewToShow) {
+                viewToShow.style.display = 'block';
+            }
+
+            // Update Judul Halaman
+            let title = "Dashboard";
+            if (viewId === 'inputKeluhanView') title = "Input Keluhan Baru";
+            if (viewId === 'dataKeluhanView') title = "Data Keluhan";
+            if (viewId === 'laporanView') title = "Laporan";
+            document.getElementById('contentTitle').innerText = title;
+
+            // Highlight link nav
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('bg-blue-50', 'text-blue-600', 'font-semibold');
+                if (link.getAttribute('onclick').includes(viewId)) {
+                    link.classList.add('bg-blue-50', 'text-blue-600', 'font-semibold');
+                }
+            });
+        }
+
+        // --- FUNGSI LOAD DATA (FIRESTORE) ---
+
+        function loadAllData() {
+            // Query data keluhan, urutkan berdasarkan tgl lapor terbaru
+            // Hindari orderBy jika tidak ada indeks
+            // const q = query(keluhanRef, orderBy("tgl_lapor", "desc"));
+            const q = query(keluhanRef);
+
+
+            // Gunakan onSnapshot untuk data real-time
+            onSnapshot(q, (snapshot) => {
+                allKeluhan = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+
+                // Urutkan di sisi klien
+                allKeluhan.sort((a, b) => new Date(b.tgl_lapor) - new Date(a.tgl_lapor));
+                
+                console.log("Data keluhan dimuat:", allKeluhan.length);
+                
+                // Render ulang data di view yang aktif
+                renderDashboard();
+                renderKeluhanTable();
+            }, (error) => {
+                console.error("Error loading data keluhan:", error);
+                alert("Gagal memuat data keluhan. Periksa koneksi Anda.");
+            });
+        }
+
+        // --- FUNGSI RENDER TAMPILAN ---
+
+        function renderDashboard() {
+            let total = allKeluhan.length;
+            let pending = allKeluhan.filter(k => k.status_keluhan === 'Baru' || k.status_keluhan === 'Ditugaskan' || k.status_keluhan === 'Dikerjakan').length;
+            let selesai = allKeluhan.filter(k => k.status_keluhan === 'Selesai' || k.status_keluhan === 'Ditutup').length;
+
+            document.getElementById('statTotal').innerText = total;
+            document.getElementById('statPending').innerText = pending;
+            document.getElementById('statSelesai').innerText = selesai;
+
+            // Render 5 keluhan terbaru di dashboard
+            const dashboardTbody = document.getElementById('dashboardTableBody');
+            dashboardTbody.innerHTML = '';
+            const terbaru = allKeluhan.slice(0, 5);
+            
+            if (terbaru.length === 0) {
+                 dashboardTbody.innerHTML = '<tr><td colspan="4" class="py-3 px-3 text-gray-500 italic text-center">Belum ada data keluhan.</td></tr>';
+                 return;
+            }
+
+            terbaru.forEach(k => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="py-3 px-3 text-sm text-gray-600">${new Date(k.tgl_lapor).toLocaleDateString('id-ID')}</td>
+                    <td class="py-3 px-3 font-medium text-gray-800">${k.nama_pelanggan || k.no_sambungan}</td>
+                    <td class="py-3 px-3 text-gray-700">${k.jenis_keluhan}</td>
+                    <td class="py-3 px-3">${formatStatusBadge(k.status_keluhan)}</td>
+                `;
+                dashboardTbody.appendChild(tr);
+            });
+        }
+
+        function renderKeluhanTable() {
+            const dataTbody = document.getElementById('dataTableBody');
+            dataTbody.innerHTML = '';
+
+            let dataToShow = allKeluhan;
+
+            // Filter data untuk teknisi
+            if (currentUserRole === 'Teknisi') {
+                // Cari ID teknisi berdasarkan nama role (contoh sederhana, idealnya pakai ID)
+                // Ini asumsi, kita harusnya punya ID teknisi saat login
+                // const teknisiNama = "Syahrial Syahputra"; // Ganti ini dengan data login teknisi asli
+                // dataToShow = allKeluhan.filter(k => k.teknisi_nama === teknisiNama && (k.status_keluhan === 'Ditugaskan' || k.status_keluhan === 'Dikerjakan'));
+                // Untuk purwarupa, teknisi bisa lihat semua yg statusnya Ditugaskan atau Dikerjakan
+                dataToShow = allKeluhan.filter(k => k.status_keluhan === 'Ditugaskan' || k.status_keluhan === 'Dikerjakan');
+            }
+            
+            if (dataToShow.length === 0) {
+                 dataTbody.innerHTML = `<tr><td colspan="8" class="py-3 px-3 text-gray-500 italic text-center">Tidak ada data keluhan untuk ditampilkan.</td></tr>`;
+                 return;
+            }
+
+            dataToShow.forEach((k, index) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-gray-50";
+                tr.innerHTML = `
+                    <td class="py-3 px-3 text-sm text-gray-600">${index + 1}</td>
+                    <td class="py-3 px-3 text-sm text-gray-600">${new Date(k.tgl_lapor).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })}</td>
+                    <td class="py-3 px-3 text-sm font-medium text-gray-800">${k.no_sambungan}</td>
+                    <td class="py-3 px-3 text-sm text-gray-800">${k.nama_pelanggan}</td>
+                    <td class="py-3 px-3 text-sm text-gray-700">${k.jenis_keluhan}</td>
+                    <td class="py-3 px-3">${formatStatusBadge(k.status_keluhan)}</td>
+                    <td class="py-3 px-3 text-sm text-gray-600">${k.teknisi_nama || '-'}</td>
+                    <td class="py-3 px-3">
+                        <button onclick="showDetailModal('${k.id}')" class="text-blue-600 hover:text-blue-800 font-medium text-sm">
+                            Detail
+                        </button>
+                    </td>
+                `;
+                dataTbody.appendChild(tr);
+            });
+        }
+
+        function formatStatusBadge(status) {
+            let className = '';
+            switch (status) {
+                case 'Baru': className = 'status-baru'; break;
+                case 'Ditugaskan': className = 'status-ditugaskan'; break;
+                case 'Dikerjakan': className = 'status-dikerjakan'; break;
+                case 'Selesai': className = 'status-selesai'; break;
+                case 'Ditutup': className = 'status-ditutup'; break;
+                default: className = 'status-ditutup';
+            }
+            return `<span class="status-badge ${className}">${status}</span>`;
+        }
+
+        // --- FUNGSI FORM KELUHAN ---
+
+        // Cari pelanggan
+        window.searchPelanggan = async function() {
+            const noSambungan = document.getElementById('noSambungan').value;
+            const statusEl = document.getElementById('searchPelangganStatus');
+            const namaEl = document.getElementById('namaPelanggan');
+            const alamatEl = document.getElementById('alamatPelanggan');
+
+            // Reset field pelanggan
+            namaEl.value = '';
+            alamatEl.value = '';
+            namaEl.readOnly = true;
+            alamatEl.readOnly = true;
+            namaEl.classList.add('bg-gray-100');
+            alamatEl.classList.add('bg-gray-100');
+
+            if (!noSambungan) {
+                statusEl.innerText = '';
+                return;
+            }
+
+            statusEl.innerText = 'Mencari...';
+            statusEl.className = 'text-sm mt-1 text-gray-500';
+
+            try {
+                // Di purwarupa ini, kita asumsikan No. Sambungan adalah ID Dokumen
+                const docRef = doc(pelangganRef, noSambungan);
+                const docSnap = await getDoc(docRef);
+
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    namaEl.value = data.nama_pelanggan;
+                    alamatEl.value = data.alamat;
+                    statusEl.innerText = 'Data pelanggan ditemukan.';
+                    statusEl.className = 'text-sm mt-1 text-green-600';
+                } else {
+                    statusEl.innerText = 'Pelanggan tidak ditemukan. Isi nama dan alamat manual.';
+                    statusEl.className = 'text-sm mt-1 text-yellow-600';
+                    // Izinkan input manual jika tidak ada
+                    namaEl.readOnly = false;
+                    alamatEl.readOnly = false;
+                    namaEl.classList.remove('bg-gray-100');
+                    alamatEl.classList.remove('bg-gray-100');
+                    namaEl.focus();
+                }
+            } catch (error) {
+                console.error("Error mencari pelanggan:", error);
+                statusEl.innerText = 'Error mencari data.';
+                statusEl.className = 'text-sm mt-1 text-red-600';
+            }
+        }
+
+        // Simpan keluhan baru
+        window.handleSimpanKeluhan = async function(event) {
+            event.preventDefault();
+            
+            const noSambungan = document.getElementById('noSambungan').value;
+            const namaPelanggan = document.getElementById('namaPelanggan').value;
+            const alamatPelanggan = document.getElementById('alamatPelanggan').value;
+            const jenisKeluhan = document.getElementById('jenisKeluhan').value;
+            
+            // Validasi sederhana
+            if (!noSambungan || !namaPelanggan || !alamatPelanggan || !jenisKeluhan) {
+                alert("Semua field wajib diisi: No. Sambungan, Nama, Alamat, dan Jenis Keluhan.");
+                return;
+            }
+            
+            try {
+                // 1. Cek & daftarkan pelanggan jika baru
+                const docRef = doc(pelangganRef, noSambungan);
+                const docSnap = await getDoc(docRef);
+                if (!docSnap.exists()) {
+                    await setDoc(docRef, {
+                        no_sambungan: noSambungan,
+                        nama_pelanggan: namaPelanggan,
+                        alamat: alamatPelanggan,
+                        no_hp: '' // Tambahkan field no_hp jika perlu
+                    });
+                    console.log("Pelanggan baru didaftarkan:", noSambungan);
+                }
+
+                // 2. Simpan data keluhan
+                const keluhanData = {
+                    no_sambungan: noSambungan,
+                    nama_pelanggan: namaPelanggan,
+                    alamat: alamatPelanggan,
+                    jenis_keluhan: jenisKeluhan,
+                    deskripsi_keluhan: document.getElementById('deskripsiKeluhan').value,
+                    status_keluhan: 'Baru',
+                    tgl_lapor: new Date().toISOString(),
+                    tgl_selesai: null,
+                    teknisi_ditugaskan: null,
+                    teknisi_nama: null,
+                    admin_input: currentUserId // Simpan siapa yg input
+                };
+
+                await addDoc(keluhanRef, keluhanData);
+                
+                alert('Keluhan baru berhasil disimpan!');
+                document.getElementById('formKeluhan').reset();
+                document.getElementById('searchPelangganStatus').innerText = '';
+                 // Reset form pelanggan
+                document.getElementById('namaPelanggan').readOnly = true;
+                document.getElementById('alamatPelanggan').readOnly = true;
+                document.getElementById('namaPelanggan').classList.add('bg-gray-100');
+                document.getElementById('alamatPelanggan').classList.add('bg-gray-100');
+                
+                showView('dataKeluhanView');
+
+            } catch (error) {
+                console.error("Error simpan keluhan:", error);
+                alert("Gagal menyimpan keluhan. Coba lagi.");
+            }
+        }
+
+
+        // --- FUNGSI MODAL DETAIL ---
+
+        let currentKeluhanId = null; // Menyimpan ID keluhan yg sedang dibuka
+
+        // Tampilkan modal
+        window.showDetailModal = async function(keluhanId) {
+            currentKeluhanId = keluhanId;
+            const keluhan = allKeluhan.find(k => k.id === keluhanId);
+            if (!keluhan) return;
+
+            // Isi data utama
+            document.getElementById('modalKeluhanId').innerText = keluhan.id.substring(0, 8);
+            document.getElementById('modalNama').innerText = keluhan.nama_pelanggan;
+            document.getElementById('modalNoSambungan').innerText = keluhan.no_sambungan;
+            document.getElementById('modalAlamat').innerText = keluhan.alamat;
+            document.getElementById('modalStatus').innerHTML = formatStatusBadge(keluhan.status_keluhan);
+            document.getElementById('modalJenisKeluhan').innerText = keluhan.jenis_keluhan;
+            document.getElementById('modalDeskripsi').innerText = keluhan.deskripsi_keluhan || '-';
+            document.getElementById('modalTglLapor').innerText = new Date(keluhan.tgl_lapor).toLocaleString('id-ID');
+
+            // Reset form teknisi
+            document.getElementById('formUpdateTindakan').reset();
+            document.getElementById('modalKeluhanIdHidden').value = keluhanId;
+
+            // Muat log tindakan
+            await loadLogTindakan(keluhanId);
+
+            // Tampilkan aksi berdasarkan role dan status
+            const aksiManajer = document.getElementById('aksiManajer');
+            const aksiTeknisi = document.getElementById('aksiTeknisi');
+            const aksiAdmin = document.getElementById('aksiAdmin');
+
+            aksiManajer.style.display = 'none';
+            aksiTeknisi.style.display = 'none';
+            aksiAdmin.style.display = 'none';
+
+            if (currentUserRole === 'Manajer' && (keluhan.status_keluhan === 'Baru' || keluhan.status_keluhan === 'Ditugaskan')) {
+                aksiManajer.style.display = 'block';
+                // Isi dropdown teknisi
+                const dropdown = document.getElementById('teknisiAssignDropdown');
+                dropdown.innerHTML = '<option value="">-- Pilih Teknisi --</option>';
+                teknisiList.forEach(t => {
+                    const selected = keluhan.teknisi_ditugaskan === t.id ? 'selected' : '';
+                    dropdown.innerHTML += `<option value="${t.id}|${t.nama}" ${selected}>${t.nama}</option>`;
+                });
+            }
+            
+            if (currentUserRole === 'Teknisi' && (keluhan.status_keluhan === 'Ditugaskan' || keluhan.status_keluhan === 'Dikerjakan')) {
+                aksiTeknisi.style.display = 'block';
+                // Ubah status jadi 'Dikerjakan' jika masih 'Ditugaskan'
+                if (keluhan.status_keluhan === 'Ditugaskan') {
+                    try {
+                        await updateDoc(doc(keluhanRef, keluhanId), { status_keluhan: 'Dikerjakan' });
+                    } catch (e) { console.error("Gagal update status ke 'Dikerjakan':", e) }
+                }
+            }
+
+            if (currentUserRole === 'Admin' && keluhan.status_keluhan === 'Selesai') {
+                aksiAdmin.style.display = 'block';
+            }
+
+            // Tampilkan modal
+            document.getElementById('detailKeluhanModal').style.display = 'flex';
+        }
+
+        // Sembunyikan modal
+        window.hideDetailModal = function() {
+            document.getElementById('detailKeluhanModal').style.display = 'none';
+            currentKeluhanId = null;
+        }
+
+        // Muat Log Tindakan
+        async function loadLogTindakan(keluhanId) {
+            const logContainer = document.getElementById('modalLogTindakan');
+            logContainer.innerHTML = '<p class="text-gray-500 italic">Memuat riwayat...</p>';
+            
+            // const q = query(logRef, where("id_keluhan", "==", keluhanId), orderBy("tgl_tindakan", "desc"));
+            // Hapus orderBy untuk menghindari error indeks
+            const q = query(logRef, where("id_keluhan", "==", keluhanId));
+            
+            try {
+                const querySnapshot = await getDocs(q);
+                if (querySnapshot.empty) {
+                    logContainer.innerHTML = '<p class="text-gray-500 italic">Belum ada tindakan yang dicatat.</p>';
+                    return;
+                }
+
+                logContainer.innerHTML = ''; // Kosongkan
+                
+                // Sortir manual di client
+                const logs = querySnapshot.docs
+                    .map(doc => doc.data())
+                    .sort((a, b) => new Date(b.tgl_tindakan) - new Date(a.tgl_tindakan));
+
+                logs.forEach(log => {
+                    const logEl = document.createElement('div');
+                    logEl.className = 'bg-gray-50 border rounded-md p-3';
+                    logEl.innerHTML = `
+                        <p class="font-medium text-gray-700">Penyebab: ${log.penyebab_gangguan}</p>
+                        <p class="text-gray-600">Tindakan: ${log.catatan_teknisi}</p>
+                        <p class="text-sm text-gray-500 mt-1">Dicatat pada: ${new Date(log.tgl_tindakan).toLocaleString('id-ID')}</p>
+                    `;
+                    logContainer.appendChild(logEl);
+                });
+
+            } catch (error) {
+                console.error("Error muat log:", error);
+                logContainer.innerHTML = '<p class="text-red-500 italic">Gagal memuat riwayat.</p>';
+            }
+        }
+
+
+        // --- FUNGSI AKSI MODAL ---
+
+        // Manajer: Menugaskan Teknisi
+        window.handleAssignTeknisi = async function() {
+            if (!currentKeluhanId) return;
+
+            const selected = document.getElementById('teknisiAssignDropdown').value;
+            if (!selected) {
+                alert('Pilih teknisi terlebih dahulu.');
+                return;
+            }
+
+            const [teknisiId, teknisiNama] = selected.split('|');
+
+            try {
+                const docRef = doc(keluhanRef, currentKeluhanId);
+                await updateDoc(docRef, {
+                    status_keluhan: 'Ditugaskan',
+                    teknisi_ditugaskan: teknisiId,
+                    teknisi_nama: teknisiNama
+                });
+                alert('Teknisi berhasil ditugaskan.');
+                hideDetailModal();
+            } catch (error) {
+                console.error("Error assign teknisi:", error);
+                alert('Gagal menugaskan teknisi.');
+            }
+        }
+
+        // Teknisi: Update Tindakan & Selesaikan
+        window.handleUpdateTindakan = async function(event) {
+            event.preventDefault();
+            if (!currentKeluhanId) return;
+
+            const penyebab = document.getElementById('penyebabGangguan').value;
+            const catatan = document.getElementById('catatanTeknisi').value;
+
+            try {
+                // 1. Simpan log tindakan
+                const logData = {
+                    id_keluhan: currentKeluhanId,
+                    tgl_tindakan: new Date().toISOString(),
+                    penyebab_gangguan: penyebab,
+                    catatan_teknisi: catatan,
+                    user_teknisi: currentUserId // Simpan ID teknisi yg update
+                };
+                await addDoc(logRef, logData);
+
+                // 2. Update status keluhan menjadi 'Selesai'
+                const docRef = doc(keluhanRef, currentKeluhanId);
+                await updateDoc(docRef, {
+                    status_keluhan: 'Selesai',
+                    tgl_selesai: new Date().toISOString()
+                });
+
+                alert('Laporan tindakan berhasil disimpan. Tugas Selesai.');
+                hideDetailModal();
+
+            } catch (error) {
+                console.error("Error update tindakan:", error);
+                alert('Gagal menyimpan laporan tindakan.');
+            }
+        }
+
+        // Admin: Menutup Tiket
+        window.handleCloseTicket = async function() {
+            if (!currentKeluhanId) return;
+            
+            // Gunakan konfirmasi kustom jika ada, atau window.confirm sebagai fallback
+            const yakin = confirm('Apakah Anda yakin ingin menutup tiket ini? Tiket yang ditutup dianggap selesai permanen.');
+            if (!yakin) {
+                return;
+            }
+
+            try {
+                const docRef = doc(keluhanRef, currentKeluhanId);
+                await updateDoc(docRef, {
+                    status_keluhan: 'Ditutup'
+                });
+                alert('Tiket keluhan telah ditutup.');
+                hideDetailModal();
+            } catch (error) {
+                console.error("Error tutup tiket:", error);
+                alert('Gagal menutup tiket.');
+            }
+        }
+
+
+        // --- INISIALISASI ---
+        
+        // Panggil fungsi inisialisasi ikon
+        // lucide.createIcons(); // HAPUS BARIS INI
+        
+        // Panggil fungsi inisialisasi Firebase Auth
+        // initAuth(); // HAPUS BARIS INI
+
+        // TAMBAHKAN BLOK INI:
+        // Bungkus inisialisasi di dalam DOMContentLoaded untuk memastikan
+        // semua skrip (termasuk lucide.js dari <head>) telah dimuat.
+        // document.addEventListener("DOMContentLoaded", () => { // HAPUS
+        
+        // PERBAIKAN: Ganti ke window.onload untuk memastikan semua
+        // skrip eksternal (seperti lucide) selesai dimuat sebelum dijalankan.
+        window.onload = () => {
+            try {
+                createIcons({ icons });
+                console.log("Ikon Lucide berhasil diinisialisasi.");
+            } catch (e) {
+                console.error("Gagal menginisialisasi ikon Lucide:", e);
+            }
+            
+            // Panggil fungsi inisialisasi Firebase Auth
+            initAuth();
+
+            // --- TAMBAHKAN BLOK INI ---
+            const loginForm = document.getElementById('loginForm');
+            const loginError = document.getElementById('loginError');
+            
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                loginError.textContent = ''; // Hapus error lama
+                
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+
+                try {
+                    // Gunakan fungsi Firebase Auth untuk login
+                    await signInWithEmailAndPassword(auth, email, password);
+                    // Jika berhasil, onAuthStateChanged akan menangani sisanya
+                    // (menampilkan mainView, mengambil role, dll.)
+                } catch (error) {
+                    console.error("Login Gagal:", error.code);
+                    if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
+                        loginError.textContent = 'Email atau password salah.';
+                    } else {
+                        loginError.textContent = 'Terjadi error saat login.';
+                    }
+                }
+            });
+
+            // Tambahkan listener ke tombol logout
+            document.querySelector('a[onclick="handleLogout()"]').addEventListener('click', async (e) => {
+                e.preventDefault();
+                try {
+                    await signOut(auth); // Fungsi logout Firebase
+                    // onAuthStateChanged akan otomatis menangani sisanya
+                } catch (error) {
+                    console.error("Gagal Logout:", error);
+                }
+            });
+            // --- AKHIR BLOK TAMBAHAN ---
+        };
+
+    </script>
+
+</body>
+</html>
